@@ -8,11 +8,14 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Swashbuckle.AspNetCore" Version="6.4.0" />
+    <Compile Remove="Models\DTOs\**" />
+    <Content Remove="Models\DTOs\**" />
+    <EmbeddedResource Remove="Models\DTOs\**" />
+    <None Remove="Models\DTOs\**" />
   </ItemGroup>
 
   <ItemGroup>
-    <Folder Include="Models\DTOs\" />
+    <PackageReference Include="Swashbuckle.AspNetCore" Version="6.4.0" />
   </ItemGroup>
 
 </Project>
