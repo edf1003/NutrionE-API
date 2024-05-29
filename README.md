@@ -26,6 +26,7 @@ NutrionE utiliza las siguientes tecnologías:
 - Google Fit: Plataforma para obtener datos de actividad física.
 - Alexa Skill: Interfaz de voz para interactuar con la aplicación.
 - .NET CORE: Servidor intermedio para las comunicaciones entre los diferentes elementos.
+- Angular: Interfaz gráfica de NutrionE.
 
 ## ✨ Funcionalidades
 NutrionE ofrece las siguientes funcionalidades:
