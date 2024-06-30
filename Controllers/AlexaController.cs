@@ -1,16 +1,13 @@
 ﻿using Microsoft.AspNetCore.Mvc;
-using NutrionE.Models;
-using NutrionE.Services;
 using NutrionE.Services.Interfaces;
 namespace NutrionE.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
-    public class AlexaController (IAlexaService alexaService, IUsersService usersService, IGoogleFitService googleFitService) : ControllerBase
+    public class AlexaController (IAlexaService alexaService, IUsersService usersService) : ControllerBase
     {
         public IAlexaService alexaService = alexaService;
         public IUsersService usersService = usersService;
-        public IGoogleFitService googleFitService = googleFitService;
 
         #region Diets
 
@@ -169,18 +166,7 @@ namespace NutrionE.Controllers
 
         #endregion UpdateUserData
 
-        #region GoogleFit
-
-        [HttpGet("GetCalories")]
-        public async Task<IActionResult> GetCalories()
-        {
-            string credentialsPath = "./../NutrionE/Configuration/StaticContent/client_secret_384145061640-3m4okko5fe1b4cv3q0bt18gipn18mehn.apps.googleusercontent.com.json";
-            string tokenPath = "./../../NutrionE/Configuration/StaticContent/Tokens";
-            await googleFitService.InitializeAsync(credentialsPath, tokenPath);
-            return Ok();
-        }
-
-        #endregion GoogleFit
+        
     }
 
 }

@@ -1,89 +1,139 @@
-﻿using Google.Apis.Auth.OAuth2;
-using Google.Apis.Fitness.v1;
-using Google.Apis.Fitness.v1.Data;
-using Google.Apis.Services;
-using Google.Apis.Util.Store;
+﻿using Newtonsoft.Json;
+using NutrionE.Models;
+using NutrionE.Models.DTOs.GoogleFitResponsesDTO;
 using NutrionE.Services.Interfaces;
+using System.Net.Http.Headers;
+using System.Text;
+using static NutrionE.Services.GoogleFitService;
 
 namespace NutrionE.Services
 {
     public class GoogleFitService : IGoogleFitService
     {
-        private static readonly string[] Scopes = { FitnessService.Scope.FitnessActivityRead };
-        private static readonly string ApplicationName = "NutriOne";
-        private UserCredential credential;
-        private FitnessService service;
+        private readonly string clientId = "";
+        private readonly string clientSecret = "";
+        private readonly string redirectUri = "https://pclp3skl-5129.euw.devtunnels.ms/api/GoogleFit/oauth2callback";
+        private readonly HttpClient httpClient;
+        private readonly string tokenPath = "./../NutrionE/Configuration/StaticContent/token.txt";
 
-        public async Task InitializeAsync(string credentialsPath, string tokenPath)
+        public GoogleFitService(HttpClient httpClient)
         {
-            using (var stream = new FileStream(credentialsPath, FileMode.Open, FileAccess.Read))
-            {
-                var clientSecrets = GoogleClientSecrets.Load(stream).Secrets;
-                credential = await GoogleWebAuthorizationBroker.AuthorizeAsync(
-                    clientSecrets,
-                    Scopes,
-                    "user",
-                    CancellationToken.None,
-                    new FileDataStore(tokenPath, true));
-            }
+            this.httpClient = httpClient;
+        }
 
-            service = new FitnessService(new BaseClientService.Initializer()
+        public string GetAuthorizationUrl()
+        {
+            var queryParams = new Dictionary<string, string>
             {
-                HttpClientInitializer = credential,
-                ApplicationName = ApplicationName,
-            });
+            { "client_id", clientId },
+            { "redirect_uri", redirectUri },
+            { "response_type", "code" },
+            { "scope", "https://www.googleapis.com/auth/fitness.activity.read" },
+            { "access_type", "offline" }
+            };
+
+            var queryString = string.Join("&", queryParams.Select(p => $"{p.Key}={Uri.EscapeDataString(p.Value)}"));
+            return $"https://accounts.google.com/o/oauth2/v2/auth?{queryString}";
+        }
+
+        public async Task ExchangeCodeForTokensAsync(string code)
+        {
+            var tokenRequest = new HttpRequestMessage(HttpMethod.Post, "https://oauth2.googleapis.com/token")
+            {
+                Content = new FormUrlEncodedContent(new Dictionary<string, string>
+            {
+                { "code", code },
+                { "client_id", clientId },
+                { "client_secret", clientSecret },
+                { "redirect_uri", redirectUri },
+                { "grant_type", "authorization_code" }
+            })
+            };
+
+            var response = await this.httpClient.SendAsync(tokenRequest);
+            response.EnsureSuccessStatusCode();
+
+            var responseContent = await response.Content.ReadAsStringAsync();
+            var tokenData = JsonConvert.DeserializeObject<Dictionary<string, string>>(responseContent);
+            if (tokenData != null && tokenData.TryGetValue("access_token", out var tokenValue))
+            {
+                try
+                {
+                    using (StreamWriter writer = new StreamWriter(tokenPath))
+                    {
+                        // Escribe el valor en el archivo
+                        writer.WriteLine(tokenValue);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine("Error: " + ex.Message);
+                }
+            }
+            else
+            {
+                throw new InvalidOperationException("Access token not found in response.");
+            }
         }
 
 
-        public async Task<IEnumerable<float>> GetCaloriesAsync(DateTime startTime, DateTime endTime)
+        public async Task<OperationResult<List<double>>> GetCaloriesLastWeekAsync()
         {
-            if (service == null)
-            {
-                throw new InvalidOperationException("Service is not initialized. Call InitializeAsync first.");
-            }
+            string token = await File.ReadAllTextAsync(tokenPath);
+            token = token.Replace("\r", "").Replace("\n", "");
 
-            var request = service.Users.Dataset.Aggregate(new AggregateRequest
+            var baseUrl = "https://www.googleapis.com/fitness/v1/users/me/dataset:aggregate";
+            var dataSource = "derived:com.google.calories.expended:com.google.android.gms:merge_calories_expended";
+
+            var today = DateTime.Now;
+            var oneWeekAgo = today.Subtract(TimeSpan.FromDays(7));
+            var startTimeMillis = (long)(oneWeekAgo - new DateTime(1970, 1, 1)).TotalMilliseconds;
+            var endTimeMillis = (long)(today - new DateTime(1970, 1, 1)).TotalMilliseconds;
+
+            var requestBody = JsonConvert.SerializeObject(new
             {
-                AggregateBy = new List<AggregateBy>
+                aggregateBy = new[]
                 {
-                    new AggregateBy
-                    {
-                        DataTypeName = "com.google.calories.expended",
-                        DataSourceId = "derived:com.google.calories.expended:com.google.android.gms:merge_calories_expended"
-                    }
+        new
+        {
+            dataSourceId = dataSource
+        }
+        },
+                bucketByTime = new
+                {
+                    durationMillis = 86400000
                 },
-                BucketByTime = new BucketByTime
-                {
-                    DurationMillis = 86400000 // 1 day in milliseconds
-                },
-                StartTimeMillis = GetUnixTimeMillis(startTime),
-                EndTimeMillis = GetUnixTimeMillis(endTime)
-            }, "me");
+                startTimeMillis = startTimeMillis,
+                endTimeMillis = endTimeMillis
+            });
 
-            var response = await request.ExecuteAsync();
-            var caloriesList = new List<float>();
+            var request = new HttpRequestMessage(HttpMethod.Post, baseUrl);
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+            request.Content = new StringContent(requestBody, Encoding.UTF8, "application/json");
 
-            if (response?.Bucket != null)
+            var response = await httpClient.SendAsync(request);
+            response.EnsureSuccessStatusCode();
+
+            var responseContent = await response.Content.ReadAsStringAsync();
+            StepData calorieData = JsonConvert.DeserializeObject<StepData>(responseContent);
+
+            List<double> calorieValues = new List<double>();
+
+            foreach (var bucket in calorieData.bucket)
             {
-                foreach (var bucket in response.Bucket)
+                if (bucket != null && bucket.dataset != null)
                 {
-                    if (bucket?.Dataset != null)
+                    foreach (var dataset in bucket.dataset)
                     {
-                        foreach (var dataset in bucket.Dataset)
+                        if (dataset != null && dataset.point != null)
                         {
-                            if (dataset?.Point != null)
+                            foreach (var point in dataset.point)
                             {
-                                foreach (var point in dataset.Point)
+                                if (point != null && point.value != null)
                                 {
-                                    if (point?.Value != null)
+                                    foreach (var value in point.value)
                                     {
-                                        foreach (var value in point.Value)
-                                        {
-                                            if (value?.FpVal != null)
-                                            {
-                                                caloriesList.Add((float)value.FpVal);
-                                            }
-                                        }
+                                        calorieValues.Add(value.fpVal); 
                                     }
                                 }
                             }
@@ -92,12 +142,82 @@ namespace NutrionE.Services
                 }
             }
 
-            return caloriesList;
+            return OperationResult<List<double>>.Success(calorieValues);
         }
 
-        private long GetUnixTimeMillis(DateTime dateTime)
+
+            public async Task<OperationResult<List<int>>> GetDailyStepsForLastWeekAsync()
         {
-            return new DateTimeOffset(dateTime).ToUnixTimeMilliseconds();
+            string token = await File.ReadAllTextAsync(tokenPath);
+            token = token.Replace("\r", "").Replace("\n", "");
+
+            var baseUrl = "https://www.googleapis.com/fitness/v1/users/me/dataset:aggregate";
+            var dataSource = "derived:com.google.step_count.delta:com.google.android.gms:estimated_steps";
+
+            var today = DateTime.Now;
+            var oneWeekAgo = today.Subtract(TimeSpan.FromDays(7));
+            var startTimeMillis = (long)(oneWeekAgo - new DateTime(1970, 1, 1)).TotalMilliseconds;
+            var endTimeMillis = (long)(today - new DateTime(1970, 1, 1)).TotalMilliseconds;
+
+            var requestBody = JsonConvert.SerializeObject(new
+            {
+                aggregateBy = new[]
+                {
+            new
+            {
+                dataSourceId = dataSource
+            }
+        },
+                bucketByTime = new
+                {
+                    durationMillis = 86400000
+                },
+                startTimeMillis = startTimeMillis,
+                endTimeMillis = endTimeMillis
+            });
+
+            var request = new HttpRequestMessage(HttpMethod.Post, baseUrl);
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+            request.Content = new StringContent(requestBody, Encoding.UTF8, "application/json");
+
+            var response = await httpClient.SendAsync(request);
+            response.EnsureSuccessStatusCode();
+
+            var responseContent = await response.Content.ReadAsStringAsync();
+
+            StepData stepData = JsonConvert.DeserializeObject<StepData>(responseContent);
+
+            List<int> intVals = new List<int>();
+
+            foreach (var bucket in stepData.bucket)
+            {
+                if (bucket != null && bucket.dataset != null)
+                {
+                    foreach (var dataset in bucket.dataset)
+                    {
+                        if (dataset != null && dataset.point != null)
+                        {
+                            foreach (var point in dataset.point)
+                            {
+                                if (point != null && point.value != null)
+                                {
+                                    foreach (var value in point.value)
+                                    {
+                                        intVals.Add(value.intVal);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            return OperationResult<List<int>>.Success(intVals);
+        }
+
+        public class CaloriesData
+        {
+            public int Calories { get; set; }
         }
     }
 }

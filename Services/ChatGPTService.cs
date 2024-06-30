@@ -216,7 +216,7 @@ namespace NutrionE.Services
 
         private static string GenerateRoutinePrompt(string genderPrefix, User user, ExerciseType exerciseType)
         {
-            return $"Genera una rutina de 6 ejercicios de gimnasio para ejercicios de {GetExerciseTypeName(exerciseType)}. Indicame solo el nombre de los ejercicios separados por comas." +
+            return $"Genera una rutina de 6 ejercicios de gimnasio para ejercicios de {GetExerciseTypeName(exerciseType)}. Indicame solo el nombre de los ejercicios y sus cantidades separados por comas." +
                    $"Para {genderPrefix} persona que mide {user?.Height} centimetos y pesa {user?.Weight} kilogramos.";
         }
 

@@ -1,6 +1,7 @@
 ﻿using Microsoft.AspNetCore.Mvc.ModelBinding.Binders;
 using Microsoft.EntityFrameworkCore;
 using NutrionE.Models;
+using NutrionE.Models.DTOs.User;
 using NutrionE.Services.Interfaces;
 
 namespace NutrionE.Services
@@ -17,6 +18,13 @@ namespace NutrionE.Services
             return dbItem;
         }
 
+        public async Task<OperationResult<User>> GetUser(string userId)
+        {
+            var dbItem = await context.Users.Where(e => e.Id == userId).FirstOrDefaultAsync();
+            if (dbItem == null) return null;
+            return OperationResult<User>.Success(dbItem);
+        }
+
         public async Task<User> CreateUser(string userId)
         {
             var user = new User
@@ -29,6 +37,7 @@ namespace NutrionE.Services
                 Height = 0,
                 Weight = 0,
                 Name = "",
+                Email = "",
             };
             await context.Users.AddAsync(user);
             await context.SaveChangesAsync();
@@ -65,7 +74,10 @@ namespace NutrionE.Services
         public async Task<string> GetUserName(string userId)
         {
             var dbItem = await GetUserByUserName(userId);
-            if (dbItem == null) return "";
+            if (dbItem == null) 
+            {
+                return ""; 
+            }
             return dbItem.Name;
         }
 
@@ -271,6 +283,26 @@ namespace NutrionE.Services
             dbItem.Email = mail;
             context.Users.Update(dbItem);
             await context.SaveChangesAsync();
+        }
+
+        public async Task<User?> UpdateUser(UserDTO user)
+        {
+            var dbItem = await GetUserByUserName(user.Id);
+            if (dbItem == null) return null;
+            dbItem.Weight = user.Weight;
+            dbItem.Height = user.Height;
+            dbItem.Age = user.Age;
+            dbItem.Name = user.Name;
+            dbItem.DietType = user.DietType;
+            dbItem.Gender = user.Gender;
+            dbItem.DietObjective = user.DietObjective;
+            dbItem.Email = user.Email;
+            dbItem.BasalMetabolism = user.BasalMetabolism;
+            context.Users.Update(dbItem);
+            await context.SaveChangesAsync();
+            await UpdateUserMetabolism(user.Id);
+            return dbItem;
+
         }
 
         #endregion UpdateUserData

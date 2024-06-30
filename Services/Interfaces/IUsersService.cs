@@ -1,45 +1,50 @@
 ﻿using NutrionE.Models;
+using NutrionE.Models.DTOs.User;
 
 namespace NutrionE.Services.Interfaces
 {
     public interface IUsersService
     {
-        public Task<User> GetUserByUserName(string userId);
+        Task<User> GetUserByUserName(string userId);
 
-        public Task<User> CreateUser(string userId);
+        Task<OperationResult<User>> GetUser(string userId);
 
-        public Task<User?> UpdateUser(string userId, DietType dietType);
+        Task<User> CreateUser(string userId);
 
-        public Task DeleteUser(string userId);
+        Task<User?> UpdateUser(string userId, DietType dietType);
 
-        public Task<string> GetUserDietType(string userId);
+        Task<User?> UpdateUser(UserDTO user);
 
-        public Task<string> GetUserGender(string userId);
+        Task DeleteUser(string userId);
 
-        public Task<string> GetUserWeight(string userId);
+        Task<string> GetUserDietType(string userId);
 
-        public Task<string> GetUserHeight(string userId);
+        Task<string> GetUserGender(string userId);
 
-        public Task<string> GetUserAge(string userId);
+        Task<string> GetUserWeight(string userId);
 
-        public Task<string> GetUserName(string userId);
+        Task<string> GetUserHeight(string userId);
 
-        public Task<string> GetUserMail(string userId);
+        Task<string> GetUserAge(string userId);
 
-        public Task UpdateUserName(string userId, string name);
+        Task<string> GetUserName(string userId);
 
-        public Task UpdateUserAge(string userId, string age);
+        Task<string> GetUserMail(string userId);
 
-        public Task UpdateUserWeight(string userId, string weight);
+        Task UpdateUserName(string userId, string name);
 
-        public Task UpdateUserHeight(string userId, string height);
+        Task UpdateUserAge(string userId, string age);
 
-        public Task UpdateUserGender(string userId, string gender);
+        Task UpdateUserWeight(string userId, string weight);
 
-        public Task UpdateUserDietType(string userId, string dietType);
+        Task UpdateUserHeight(string userId, string height);
 
-        public Task UpdateUserObjective(string userId, string objective);
+        Task UpdateUserGender(string userId, string gender);
 
-        public Task UpdateUserMail(string userId, string mail);
+        Task UpdateUserDietType(string userId, string dietType);
+
+        Task UpdateUserObjective(string userId, string objective);
+
+        Task UpdateUserMail(string userId, string mail);
     }
 }

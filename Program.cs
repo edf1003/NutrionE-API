@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using NutrionE.Configuration;
 using NutrionE.Models;
+using NutrionE.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -11,6 +12,7 @@ builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 builder.Services.AddDbContext<NutrioneContext>(options => options.UseSqlServer("Server=KIKE\\SQLDEV;Database=NutrionE;Trusted_Connection=True;TrustServerCertificate=True;"));
+builder.Services.AddHttpClient<GoogleFitService>(); 
 ConfigureServiceDeclarations.ConfigureServices(builder.Services, builder.Environment, builder.Configuration);
 
 var app = builder.Build();
@@ -20,7 +22,15 @@ if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
     app.UseSwaggerUI();
+    app.UseDeveloperExceptionPage();
 }
+
+app.UseCors(builder =>
+{
+    builder.AllowAnyOrigin().
+    AllowAnyMethod().
+    AllowAnyHeader();
+});
 
 app.UseHttpsRedirection();
 

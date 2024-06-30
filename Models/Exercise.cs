@@ -7,8 +7,6 @@
         public string Name { get; set; }
 
         public long DailyRoutineId { get; set; }
-
-        public DailyRoutine DailyRoutine { get; set; }
     }
 
     public enum ExerciseType

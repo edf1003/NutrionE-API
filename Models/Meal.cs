@@ -13,7 +13,5 @@
         public string Dessert { get; set; }
 
         public long DailyDietId { get; set; }
-
-        public DailyDiet DailyDiet { get; set; }
     }
 }
